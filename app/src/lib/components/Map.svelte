@@ -4,6 +4,7 @@
 	import type { StrikeData, LayerMeta } from '$lib/types';
 	import { t } from '$lib/i18n';
 	import { isDarkStore } from '$lib/theme';
+	import { ATTRIBUTION, POLICE, POLICE_GRASSE, rhabillerFond, styleFond } from '$lib/fond';
 
 	let {
 		data,
@@ -224,7 +225,7 @@
 
 			if (labelFeatures.length) {
 				map.addSource('ann-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: labelFeatures } });
-				map.addLayer({ id: 'ann-labels-text', type: 'symbol', source: 'ann-labels', layout: { 'text-field': ['get', 'label'], 'text-size': ['get', 'fontSize'], 'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'], 'text-anchor': ['get', 'anchor'], 'text-offset': [0, 0], 'text-allow-overlap': true }, paint: { 'text-color': ['get', 'color'], 'text-halo-color': isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)', 'text-halo-width': 2 } });
+				map.addLayer({ id: 'ann-labels-text', type: 'symbol', source: 'ann-labels', layout: { 'text-field': ['get', 'label'], 'text-size': ['get', 'fontSize'], 'text-font': POLICE_GRASSE, 'text-anchor': ['get', 'anchor'], 'text-offset': [0, 0], 'text-allow-overlap': true }, paint: { 'text-color': ['get', 'color'], 'text-halo-color': isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)', 'text-halo-width': 2 } });
 				ids.push('ann-labels-text');
 			}
 		}
@@ -262,21 +263,17 @@
 	}
 
 	onMount(() => {
-		const cartoStyle = isDark
-			? 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json'
-			: 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json';
-
 		// Main map
 		map = new maplibregl.Map({
 			container: mapContainer,
-			style: cartoStyle,
+			style: styleFond(isDark),
 			maxBounds: [DATA_BOUNDS[0] - 5, DATA_BOUNDS[1] - 5, DATA_BOUNDS[2] + 5, DATA_BOUNDS[3] + 5],
 			maxZoom: 14,
 			minZoom: 2,
 			cooperativeGestures: true,
 			attributionControl: false
 		});
-		map.addControl(new maplibregl.AttributionControl({ customAttribution: 'MapLibre' }), 'bottom-right');
+		map.addControl(new maplibregl.AttributionControl({ customAttribution: ATTRIBUTION }), 'bottom-right');
 
 		const isMobile = window.innerWidth <= 768;
 		const bounds = initialBounds ?? DATA_BOUNDS;
@@ -312,15 +309,6 @@
 
 		map.on('load', () => {
 
-			// Restyle country borders from CartoDB vector style
-			if (map?.getLayer('boundary_country_inner')) {
-				map.setPaintProperty('boundary_country_inner', 'line-color', isDark ? '#ffffff' : '#000000');
-				map.setPaintProperty('boundary_country_inner', 'line-opacity', isDark ? 0.5 : 0.6);
-				map.setPaintProperty('boundary_country_inner', 'line-width', 1);
-			}
-			if (map?.getLayer('boundary_country_outline')) {
-				map.setPaintProperty('boundary_country_outline', 'line-opacity', 0);
-			}
 
 			// Country labels
 			map!.addSource('country-labels', {
@@ -336,7 +324,7 @@
 				layout: {
 					'text-field': ['get', 'name'],
 					'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 6, 14, 10, 18],
-					'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+					'text-font': POLICE,
 					'text-transform': 'uppercase',
 					'text-letter-spacing': 0.15,
 					'text-allow-overlap': false,
@@ -465,19 +453,7 @@
 		// Mini map (globe medallion)
 		miniMap = new maplibregl.Map({
 			container: miniMapContainer,
-			style: {
-				version: 8,
-				sources: {
-					'carto-mini': {
-						type: 'raster',
-						tiles: [
-							`https://a.basemaps.cartocdn.com/${isDark ? 'dark_nolabels' : 'light_nolabels'}/{z}/{x}/{y}.png`,
-						],
-						tileSize: 256
-					}
-				},
-				layers: [{ id: 'carto-mini', type: 'raster', source: 'carto-mini' }]
-			},
+			style: styleFond(isDark, true),
 			center: [47, 30],
 			zoom: 0,
 			interactive: false,
@@ -533,22 +509,7 @@
 	$effect(() => {
 		const dark = isDark;
 		if (!map || !map.isStyleLoaded()) return;
-		// Swap vector basemap style
-		const newStyle = dark
-			? 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json'
-			: 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json';
-		map.setStyle(newStyle);
-		// Re-apply border color after style reloads (our layers are wiped on setStyle)
-		map.once('styledata', () => {
-			if (map?.getLayer('boundary_country_inner')) {
-				map.setPaintProperty('boundary_country_inner', 'line-color', dark ? '#ffffff' : '#000000');
-				map.setPaintProperty('boundary_country_inner', 'line-opacity', dark ? 0.5 : 0.6);
-				map.setPaintProperty('boundary_country_inner', 'line-width', 1);
-			}
-			if (map?.getLayer('boundary_country_outline')) {
-				map.setPaintProperty('boundary_country_outline', 'line-opacity', 0);
-			}
-		});
+		rhabillerFond(map, dark);
 		// Country labels
 		if (map.getLayer('country-labels-text')) {
 			map.setPaintProperty('country-labels-text', 'text-color', dark ? '#777' : '#999');
@@ -558,10 +519,7 @@
 		if (map.getLayer('highlight-ring')) {
 			map.setPaintProperty('highlight-ring', 'circle-stroke-color', dark ? '#ffffff' : '#000000');
 		}
-		// Mini map tiles
-		if (miniMap?.getSource('carto-mini')) {
-			(miniMap.getSource('carto-mini') as any).setTiles([`https://a.basemaps.cartocdn.com/${dark ? 'dark_nolabels' : 'light_nolabels'}/{z}/{x}/{y}.png`]);
-		}
+		if (miniMap?.isStyleLoaded()) rhabillerFond(miniMap, dark, true);
 	});
 
 	$effect(() => {

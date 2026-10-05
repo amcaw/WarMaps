@@ -3,6 +3,7 @@
 	import maplibregl from 'maplibre-gl';
 	import type { UkraineData } from '$lib/types';
 	import { isDarkStore } from '$lib/theme';
+	import { ATTRIBUTION, POLICE, rhabillerFond, styleFond } from '$lib/fond';
 
 	let {
 		data,
@@ -72,50 +73,7 @@
 	onMount(() => {
 		map = new maplibregl.Map({
 			container: mapContainer,
-			style: {
-				version: 8,
-				glyphs: 'https://tiles.basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf',
-				sources: {
-					'carto': {
-						type: 'vector',
-						tiles: [
-							'https://tiles-a.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt',
-							'https://tiles-b.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt',
-						],
-						minzoom: 0,
-						maxzoom: 14
-					}
-				},
-				layers: [
-					{
-						id: 'background',
-						type: 'background',
-						paint: { 'background-color': isDark ? '#0e0e0e' : '#FAFAF8' }
-					},
-					{
-						id: 'water',
-						type: 'fill',
-						source: 'carto',
-						'source-layer': 'water',
-						filter: ['==', '$type', 'Polygon'],
-						paint: { 'fill-color': isDark ? '#262626' : '#D4DADC' }
-					},
-					{
-						id: 'boundary_state',
-						type: 'line',
-						source: 'carto',
-						'source-layer': 'boundary',
-						filter: ['==', 'admin_level', 2],
-						layout: { 'line-cap': 'round', 'line-join': 'round' },
-						paint: {
-							'line-blur': 0.4,
-							'line-color': isDark ? '#ffffff' : '#000000',
-							'line-opacity': isDark ? 0.5 : 0.6,
-							'line-width': ['interpolate', ['exponential', 1.3], ['zoom'], 3, 1, 22, 15]
-						}
-					}
-				]
-			},
+			style: styleFond(isDark),
 			maxZoom: 14,
 			minZoom: 3,
 			cooperativeGestures: true,
@@ -124,7 +82,7 @@
 
 		map.addControl(new maplibregl.NavigationControl(), 'top-right');
 		map.addControl(new maplibregl.ScaleControl({ maxWidth: 150, unit: 'metric' }), 'bottom-right');
-		map.addControl(new maplibregl.AttributionControl({ customAttribution: 'MapLibre | &copy; <a href="https://carto.com/">CARTO</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>' }), 'bottom-right');
+		map.addControl(new maplibregl.AttributionControl({ customAttribution: ATTRIBUTION }), 'bottom-right');
 		const attribEl = mapContainer.querySelector('.maplibregl-ctrl-attrib');
 		if (attribEl) {
 			attribEl.classList.add('maplibregl-compact');
@@ -235,7 +193,7 @@
 				]}
 			});
 			map!.addLayer({ id: 'country-labels-text', type: 'symbol', source: 'country-labels',
-				layout: { 'text-field': ['get', 'name'], 'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 6, 14, 10, 18], 'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'], 'text-transform': 'uppercase', 'text-letter-spacing': 0.15, 'text-allow-overlap': false },
+				layout: { 'text-field': ['get', 'name'], 'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 6, 14, 10, 18], 'text-font': POLICE, 'text-transform': 'uppercase', 'text-letter-spacing': 0.15, 'text-allow-overlap': false },
 				paint: { 'text-color': isDark ? '#777' : '#999', 'text-halo-color': isDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)', 'text-halo-width': 1.5 }
 			});
 
@@ -259,7 +217,7 @@
 		// Mini map
 		miniMap = new maplibregl.Map({
 			container: miniMapContainer,
-			style: { version: 8, sources: { 'carto-mini': { type: 'raster', tiles: [`https://a.basemaps.cartocdn.com/${isDark ? 'dark_nolabels' : 'light_nolabels'}/{z}/{x}/{y}.png`], tileSize: 256 } }, layers: [{ id: 'carto-mini', type: 'raster', source: 'carto-mini' }] },
+			style: styleFond(isDark, true),
 			center: [31, 49], zoom: 0, interactive: false, attributionControl: false
 		});
 
@@ -295,10 +253,7 @@ if (map.getLayer('ukraine-oblasts-line')) map.setPaintProperty('ukraine-oblasts-
 			map.setPaintProperty('country-labels-text', 'text-color', dark ? '#777' : '#999');
 			map.setPaintProperty('country-labels-text', 'text-halo-color', dark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)');
 		}
-		// Update mini map tiles
-		if (miniMap?.getSource('carto-mini')) {
-			(miniMap.getSource('carto-mini') as any).setTiles([`https://a.basemaps.cartocdn.com/${dark ? 'dark_nolabels' : 'light_nolabels'}/{z}/{x}/{y}.png`]);
-		}
+		if (miniMap?.isStyleLoaded()) rhabillerFond(miniMap, dark, true);
 	});
 
 	$effect(() => {
